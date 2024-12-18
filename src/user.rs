@@ -6,6 +6,7 @@ pub struct User {
     nickname: String,
 }
 
+#[allow(dead_code)]
 impl User {
     pub fn new(name: &str) -> Self {
         Self {

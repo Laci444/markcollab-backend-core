@@ -1,5 +1,6 @@
 use database::Rooms;
 use futures::{SinkExt, StreamExt};
+use log::error;
 use log::info;
 use user::User;
 use warp::{
@@ -56,7 +57,7 @@ async fn handle_user(room_id: String, ws: WebSocket, username: String, database:
     while let Some(incoming) = stream.next().await {
         match incoming {
             Ok(msg) => info!("Got message from user {}: {:#?}", user.get_nickname(), msg),
-            Err(err) => eprintln!("Socket error with user {}: {}", user.get_name(), err),
+            Err(err) => error!("Socket error with user {}: {}", user.get_name(), err),
         }
     }
 }

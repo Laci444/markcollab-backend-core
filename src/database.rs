@@ -8,6 +8,7 @@ pub struct Rooms {
     rooms: Arc<RwLock<HashMap<String, Room>>>,
 }
 
+#[allow(dead_code)]
 impl Rooms {
     pub fn new() -> Self {
         Rooms {

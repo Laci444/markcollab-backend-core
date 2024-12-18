@@ -8,6 +8,7 @@ pub struct Room {
     users: HashSet<User>,
 }
 
+#[allow(dead_code)]
 impl Room {
     pub fn new(name: String) -> Self {
         Self {
