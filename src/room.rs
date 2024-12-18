@@ -1,11 +1,17 @@
 use std::{collections::HashSet, hash::Hash};
 
+use tokio::sync::broadcast;
+use tokio::sync::broadcast::error::SendError;
+use tokio::sync::broadcast::Sender;
+
+use crate::message::Message;
 use crate::user::User;
 
 #[derive(Clone)]
 pub struct Room {
     name: String,
     users: HashSet<User>,
+    sender: Sender<Message>,
 }
 
 #[allow(dead_code)]
@@ -14,13 +20,19 @@ impl Room {
         Self {
             name,
             users: HashSet::default(),
+            sender: broadcast::channel(usize::MAX).0,
         }
     }
-    pub fn add_user(&mut self, user: User) {
+    pub fn add_user(&mut self, mut user: User) {
+        user.set_current_room_id(&self.name);
         self.users.insert(user);
     }
-    pub fn remove_and_return_user(&mut self, user: &User) -> Option<User> {
+    pub fn remove_and_return_user(&mut self, user: &mut User) -> Option<User> {
+        (*user).delete_current_room_id();
         self.users.take(user)
+    }
+    pub fn send_message(&self, message: Message) -> Result<usize, SendError<Message>> {
+        self.sender.send(message)
     }
 }
 

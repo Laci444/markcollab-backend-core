@@ -1,9 +1,15 @@
 use std::hash::Hash;
 
+use tokio::sync::broadcast::Receiver;
+
+use crate::message::Message;
+
 #[derive(Clone)]
 pub struct User {
     name: String,
     nickname: String,
+    receiver: Option<Receiver<Message>>,
+    current_room_id: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -12,6 +18,8 @@ impl User {
         Self {
             name: name.to_string(),
             nickname: name.to_string(),
+            receiver: None,
+            current_room_id: None,
         }
     }
     pub fn set_nickname(&mut self, nickname: &str) {
@@ -22,6 +30,15 @@ impl User {
     }
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+    pub fn get_current_room_id(&self) -> Option<&str> {
+        self.current_room_id.as_deref()
+    }
+    pub fn set_current_room_id(&mut self, room_id: &str) {
+        self.current_room_id = Some(room_id.to_string());
+    }
+    pub fn delete_current_room_id(&mut self) {
+        self.current_room_id = None;
     }
 }
 

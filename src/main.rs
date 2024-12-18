@@ -9,6 +9,7 @@ use warp::{
 };
 
 mod database;
+mod message;
 mod room;
 mod user;
 
