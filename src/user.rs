@@ -1,14 +1,8 @@
 use std::hash::Hash;
 
-use tokio::sync::broadcast::Receiver;
-
-use crate::message::Message;
-
-#[derive(Clone)]
 pub struct User {
     name: String,
     nickname: String,
-    receiver: Option<Receiver<Message>>,
     current_room_id: Option<String>,
 }
 
@@ -18,7 +12,6 @@ impl User {
         Self {
             name: name.to_string(),
             nickname: name.to_string(),
-            receiver: None,
             current_room_id: None,
         }
     }
