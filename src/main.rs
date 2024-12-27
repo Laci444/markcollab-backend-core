@@ -3,7 +3,7 @@ use futures::{SinkExt, StreamExt};
 use log::debug;
 use log::error;
 use log::info;
-use schemars::schema_for;
+use message::ParsedMessage;
 use warp::{
     filters::ws::{Message, WebSocket},
     Filter,
@@ -98,7 +98,15 @@ async fn handle_message(database: &Rooms, username: &str, msg: Message, room_id:
         &username, msg
     );
 
-    debug!("Received message is not a valid ParsedMessage type",);
+    let message: ParsedMessage = match serde_json::from_str(msg.to_str().unwrap()) {
+        Ok(pmsg) => pmsg,
+        Err(_) => {
+            debug!("Received message is not a valid ParsedMessage type");
+            return;
+        }
+    };
+
+
     database
         .write_to_room(room_id, msg.to_str().unwrap().to_owned())
         .await

@@ -1,15 +1,13 @@
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub enum ParsedMessage {
     Update(Update),
     Control(Control),
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub enum UpdateType {
     Insert,
@@ -17,8 +15,7 @@ pub enum UpdateType {
     Update,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Update {
     pub r#type: UpdateType,
@@ -27,8 +24,7 @@ pub struct Update {
     pub character: Option<char>,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Control {
     message: String,
