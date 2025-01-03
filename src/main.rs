@@ -1,39 +1,51 @@
-use database::Rooms;
-use futures::{SinkExt, StreamExt};
-use log::debug;
-use log::error;
-use log::info;
-use message::ParsedMessage;
-use warp::{
-    filters::ws::{Message, WebSocket},
-    Filter,
-};
+use std::collections::HashMap;
+use std::sync::Arc;
 
-mod database;
-mod message;
-mod room;
-mod user;
+use futures::StreamExt;
+use log::debug;
+use log::info;
+use log::warn;
+use tokio::sync::{Mutex, RwLock};
+use warp::{filters::ws::WebSocket, Filter};
+use yrs::{sync::Awareness, Doc, Text, Transact};
+use yrs_warp::ws::WarpSink;
+use yrs_warp::ws::WarpStream;
+use yrs_warp::{broadcast::BroadcastGroup, AwarenessRef};
 
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
     let logging = warp::log("ACCESS_LOG");
-    let database = Rooms::new();
 
-    let _ = database.create_room("example").await;
-    let _ = database.create_room("topic").await;
-    debug!("Room example created");
-    debug!("Room topic created");
+    let awareness: AwarenessRef = {
+        let doc = Doc::new();
+        {
+            let txt = doc.get_or_insert_text("example-room");
+            let mut txn = doc.transact_mut();
+            txt.push(
+                &mut txn,
+                r#"function hello() {
+  console.log('hello world');
+}"#,
+            );
+        }
+        Arc::new(RwLock::new(Awareness::new(doc)))
+    };
 
-    let append_database = warp::any().map(move || database.clone());
+    let bcast = Arc::new(BroadcastGroup::new(awareness, 32).await);
+    let append_broadcast_group = warp::any().map(move || bcast.clone());
 
     let ws_path = warp::path!("ws" / String)
         .and(warp::ws())
-        .and(warp::header::<String>("user-name"))
-        .and(append_database)
+        .and(warp::filters::query::query::<HashMap<String, String>>())
+        .and(append_broadcast_group)
         .map(
-            |path: String, ws: warp::ws::Ws, username: String, database: Rooms| {
-                ws.on_upgrade(|socket| handle_user(path, socket, username, database))
+            |path: String,
+             ws: warp::ws::Ws,
+             request_query: HashMap<String, String>,
+             bcast: Arc<BroadcastGroup>| {
+                let username = request_query.get("user-name").unwrap().to_owned();
+                ws.on_upgrade(|socket| handle_user(path, socket, username, bcast))
             },
         );
 
@@ -42,78 +54,19 @@ async fn main() {
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
-async fn handle_user(room_id: String, ws: WebSocket, username: String, database: Rooms) {
+async fn handle_user(room_id: String, ws: WebSocket, username: String, bcast: Arc<BroadcastGroup>) {
     debug!("New user connected: {username}!");
-    let (mut sink, mut stream) = ws.split();
+    let (sink, stream) = ws.split();
 
-    // TODO: handle the errors
-    let mut topic = database
-        .add_new_user(&room_id, &username)
-        .await
-        .expect("Error connecting user to room {room_id}");
-    info!("User {} connected to room {room_id}", &username);
+    let yrs_sink = Arc::new(Mutex::new(WarpSink::from(sink)));
+    let yrs_stream = WarpStream::from(stream);
 
-    sink.send(Message::text(format!("You are in room {room_id}")))
-        .await
-        .expect("Error sending message to user");
+    let sub = bcast.subscribe(yrs_sink, yrs_stream);
 
-    // send out messages received from subscribed topic
-    tokio::spawn(async move {
-        while let Ok(msg) = topic.recv().await {
-            match sink
-                .send(Message::text(serde_json::to_string(&msg).unwrap()))
-                .await
-            {
-                Ok(_) => (),
-                Err(_) => break,
-            }
-        }
-    });
+    info!("User {} subscribed to room {room_id}", &username);
 
-    // listen for messages from client
-    while let Some(incoming) = stream.next().await {
-        let msg = match incoming {
-            Ok(msg) => msg,
-            Err(err) => {
-                error!("Socket error with user {}: {}", &username, err);
-                break;
-            }
-        };
-        let _ = handle_message(&database, &username, msg, &room_id).await;
+    match sub.completed().await {
+        Ok(_) => info!("User {} disconnected", &username),
+        Err(e) => warn!("User {} error: {}", &username, e),
     }
-
-    handle_disconnect(&username, database).await;
-}
-
-async fn handle_message(database: &Rooms, username: &str, msg: Message, room_id: &str) {
-    if !msg.is_text() {
-        debug!(
-            "Got non-text message in room {room_id} from user {}: {:#?} ",
-            &username, msg
-        );
-        return;
-    }
-    debug!(
-        "Got message in room {room_id} from user {}: {:#?} ",
-        &username, msg
-    );
-
-    let message: ParsedMessage = match serde_json::from_str(msg.to_str().unwrap()) {
-        Ok(pmsg) => pmsg,
-        Err(_) => {
-            debug!("Received message is not a valid ParsedMessage type");
-            return;
-        }
-    };
-
-
-    database
-        .write_to_room(room_id, msg.to_str().unwrap().to_owned())
-        .await
-        .unwrap();
-}
-
-async fn handle_disconnect(username: &str, database: Rooms) {
-    info!("User {username} has disconnected");
-    database.purge_user(username).await;
 }
