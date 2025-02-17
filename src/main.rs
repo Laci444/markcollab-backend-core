@@ -1,3 +1,5 @@
+mod broadcast_provider;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -11,6 +13,8 @@ use yrs::{sync::Awareness, Doc, Text, Transact};
 use yrs_warp::ws::WarpSink;
 use yrs_warp::ws::WarpStream;
 use yrs_warp::{broadcast::BroadcastGroup, AwarenessRef};
+
+//use broadcast_provider::BroadcastGroup;
 
 #[tokio::main]
 async fn main() {
