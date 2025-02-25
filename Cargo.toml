@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1.86"
 env_logger = "0.11.5"
 futures = "0.3.31"
 futures-core = "0.3.31"
@@ -21,6 +22,8 @@ thiserror = "2.0.11"
 tokio = { version = "1.42.0", features = ["full"] }
 tokio-stream = "0.1.17"
 tokio-tungstenite = "0.24.0"
+tracing = "0.1.41"
 warp = "0.3.7"
 y-octo = "0.0.1"
+yrs = "0.22.0"
 yrs-warp = "0.8.0"

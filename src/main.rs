@@ -9,12 +9,13 @@ use log::info;
 use log::warn;
 use tokio::sync::{Mutex, RwLock};
 use warp::{filters::ws::WebSocket, Filter};
-use yrs::{sync::Awareness, Doc, Text, Transact};
+use yrs::{sync::awareness::Awareness, Doc, Text, Transact};
 use yrs_warp::ws::WarpSink;
 use yrs_warp::ws::WarpStream;
-use yrs_warp::{broadcast::BroadcastGroup, AwarenessRef};
 
-//use broadcast_provider::BroadcastGroup;
+use broadcast_provider::broadcast_new::BroadcastGroup;
+use broadcast_provider::protocol_new::AsyncKafkaProtocol;
+use broadcast_provider::AwarenessRef;
 
 #[tokio::main]
 async fn main() {
@@ -65,7 +66,7 @@ async fn handle_user(room_id: String, ws: WebSocket, username: String, bcast: Ar
     let yrs_sink = Arc::new(Mutex::new(WarpSink::from(sink)));
     let yrs_stream = WarpStream::from(stream);
 
-    let sub = bcast.subscribe(yrs_sink, yrs_stream);
+    let sub = bcast.subscribe_with(yrs_sink, yrs_stream, AsyncKafkaProtocol);
 
     info!("User {} subscribed to room {room_id}", &username);
 
