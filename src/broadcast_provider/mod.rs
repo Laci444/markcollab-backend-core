@@ -1,13 +1,13 @@
-mod broadcast;
-mod protocol;
+pub mod broadcast;
+pub mod protocol;
 
 use std::sync::Arc;
 
+use std::sync::RwLock;
 use thiserror::Error;
-use tokio::sync::RwLock;
 use y_octo::{Awareness, Doc};
 
-struct YObject {
+pub struct YObject {
     doc: Doc,
     awareness: Awareness,
 }

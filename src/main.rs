@@ -7,36 +7,18 @@ use futures::StreamExt;
 use log::debug;
 use log::info;
 use log::warn;
-use tokio::sync::{Mutex, RwLock};
 use warp::{filters::ws::WebSocket, Filter};
-use yrs::{sync::Awareness, Doc, Text, Transact};
 use yrs_warp::ws::WarpSink;
 use yrs_warp::ws::WarpStream;
-use yrs_warp::{broadcast::BroadcastGroup, AwarenessRef};
 
-//use broadcast_provider::BroadcastGroup;
+use broadcast_provider::broadcast::BroadcastGroup;
 
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
     let logging = warp::log("ACCESS_LOG");
 
-    let awareness: AwarenessRef = {
-        let doc = Doc::new();
-        {
-            let txt = doc.get_or_insert_text("example-room");
-            let mut txn = doc.transact_mut();
-            txt.push(
-                &mut txn,
-                r#"function hello() {
-  console.log('hello world');
-}"#,
-            );
-        }
-        Arc::new(RwLock::new(Awareness::new(doc)))
-    };
-
-    let bcast = Arc::new(BroadcastGroup::new(awareness, 32).await);
+    let bcast = Arc::new(BroadcastGroup::new().await);
     let append_broadcast_group = warp::any().map(move || bcast.clone());
 
     let ws_path = warp::path!("ws" / String)
@@ -62,7 +44,7 @@ async fn handle_user(room_id: String, ws: WebSocket, username: String, bcast: Ar
     debug!("New user connected: {username}!");
     let (sink, stream) = ws.split();
 
-    let yrs_sink = Arc::new(Mutex::new(WarpSink::from(sink)));
+    let yrs_sink = WarpSink::from(sink);
     let yrs_stream = WarpStream::from(stream);
 
     let sub = bcast.subscribe(yrs_sink, yrs_stream);
