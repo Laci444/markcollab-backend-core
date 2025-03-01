@@ -1,58 +1,47 @@
-mod broadcast_provider;
+mod kafka_connector;
 
-use std::collections::HashMap;
-use std::sync::Arc;
+use kafka_connector::{
+    consumer::create_consumer,
+    publisher::{create_publisher, send_message},
+};
+use rdkafka::Message;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    main,
+};
+use uuid::Uuid;
 
-use futures::StreamExt;
-use log::debug;
-use log::info;
-use log::warn;
-use warp::{filters::ws::WebSocket, Filter};
-use yrs_warp::ws::WarpSink;
-use yrs_warp::ws::WarpStream;
-
-use broadcast_provider::broadcast::BroadcastGroup;
-
-#[tokio::main]
+#[main]
 async fn main() {
-    pretty_env_logger::init();
-    let logging = warp::log("ACCESS_LOG");
+    let server = "192.168.0.10:9092";
+    let topic = "test-topic";
 
-    let bcast = Arc::new(BroadcastGroup::new().await);
-    let append_broadcast_group = warp::any().map(move || bcast.clone());
+    let publisher = create_publisher(server).expect("Failed to create publisher");
+    let consumer = create_consumer(server, &Uuid::new_v4().to_string(), &[topic])
+        .expect("Failed to create consumer");
 
-    let ws_path = warp::path!("ws" / String)
-        .and(warp::ws())
-        .and(warp::filters::query::query::<HashMap<String, String>>())
-        .and(append_broadcast_group)
-        .map(
-            |path: String,
-             ws: warp::ws::Ws,
-             request_query: HashMap<String, String>,
-             bcast: Arc<BroadcastGroup>| {
-                let username = request_query.get("user-name").unwrap().to_owned();
-                ws.on_upgrade(|socket| handle_user(path, socket, username, bcast))
-            },
-        );
+    let mut stdout = tokio::io::stdout();
+    let mut input_lines = BufReader::new(tokio::io::stdin()).lines();
 
-    let response_headers = warp::reply::with::header("Sec-WebSocket-Protocol", "markcollab-v1");
-    let routes = ws_path.with(response_headers).with(logging);
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
-}
+    loop {
+        stdout.write_all(b"> ").await.unwrap();
+        stdout.flush().await.unwrap();
 
-async fn handle_user(room_id: String, ws: WebSocket, username: String, bcast: Arc<BroadcastGroup>) {
-    debug!("New user connected: {username}!");
-    let (sink, stream) = ws.split();
-
-    let yrs_sink = WarpSink::from(sink);
-    let yrs_stream = WarpStream::from(stream);
-
-    let sub = bcast.subscribe(yrs_sink, yrs_stream);
-
-    info!("User {} subscribed to room {room_id}", &username);
-
-    match sub.completed().await {
-        Ok(_) => info!("User {} disconnected", &username),
-        Err(e) => warn!("User {} error: {}", &username, e),
+        tokio::select! {
+            message = consumer.recv() => {
+                let message = message.expect("Failed to read message");
+                let payload = message.payload().unwrap();
+                stdout.write_all(payload).await.unwrap();
+                stdout.write_all(b"\n").await.unwrap();
+            }
+            line = input_lines.next_line() => {
+                match line {
+                    Ok(Some(line)) => {
+                        send_message(&publisher, topic, line).await.expect("Failed to send message");
+                    }
+                    _ => break,
+                }
+            }
+        }
     }
 }
