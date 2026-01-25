@@ -2,24 +2,31 @@ mod broadcast_provider;
 mod auth;
 mod room;
 
+use axum::{
+    extract::ws::WebSocket,
+    extract::{Path, State, WebSocketUpgrade},
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
+use futures_util::StreamExt;
 use std::env;
 use std::sync::Arc;
-use futures::StreamExt;
-use tracing::{debug, info, warn, instrument};
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
+use tracing::{debug, info, instrument, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use warp::{filters::ws::WebSocket, Filter, Rejection};
-use yrs_warp::ws::WarpSink;
-use yrs_warp::ws::WarpStream;
 
-use auth::{with_auth, with_mock_auth, handle_auth_rejection, UserInfo};
-use room::{RoomManager, room_routes};
-use broadcast_provider::broadcast::BroadcastGroup;
 use crate::room::InMemoryRoomStorage;
+use auth::{AuthState, UserInfo};
+use broadcast_provider::adapters::{AxumSink, AxumStream, ProtocolSink, ProtocolStream};
+use broadcast_provider::broadcast::BroadcastGroup;
+use room::{room_routes, RoomManager};
 
 #[tokio::main]
 async fn main() {
     init_tracing();
-    
+
     info!("Starting MarkCollab backend server");
 
     let room_storage = Box::new(InMemoryRoomStorage::new());
@@ -27,70 +34,107 @@ async fn main() {
 
     let api_routes = room_routes(room_manager.clone());
 
-    // Use mock auth for development - switch to with_auth() when ready
-    let auth_filter = if env::var("USE_MOCK_AUTH").is_ok() {
+    // Use mock auth for development - switch to JWT when ready
+    let auth_state = if env::var("USE_MOCK_AUTH").is_ok() {
         info!("Using MOCK authentication (development only!)");
-        with_mock_auth().boxed()
+        AuthState::mock()
     } else {
         let jwt_secret = env::var("JWT_SECRET")
             .expect("JWT_SECRET environment variable is required when not using mock auth");
         info!("Using real JWT authentication");
-        with_auth(jwt_secret).boxed()
+        AuthState::jwt(jwt_secret)
     };
 
-    let append_room_manager = warp::any().map(move || room_manager.clone());
+    // WebSocket route with custom state
+    let ws_route = Router::new()
+        .route("/ws/:room_id", get(ws_handler))
+        .layer(axum::middleware::from_fn_with_state(
+            auth_state.clone(),
+            auth_middleware,
+        ))
+        .with_state(room_manager.clone());
 
-    let ws_path = warp::path!("ws" / String)
-        .and(warp::ws())
-        .and(auth_filter)
-        .and(append_room_manager)
-        .and_then(
-            |room_id: String,
-             ws: warp::ws::Ws,
-             user_info: UserInfo,
-             room_manager: Arc<RoomManager>| async move {
-                let bcast = room_manager
-                    .get_room(&room_id)
-                    .await
-                    .map(|room| room.broadcast_group.clone())
-                    .ok_or(warp::reject::not_found())?;
-
-                debug!(
-                    room_id = %room_id,
-                    user_id = %user_info.user_id,
-                    username = %user_info.username,
-                    "WebSocket upgrade requested"
-                );
-
-                Ok::<_, Rejection>(ws.on_upgrade(move |socket|
-                    handle_user(room_id, socket, user_info, bcast))
-                )
-            },
+    // Combine all routes
+    let app = Router::new()
+        .merge(api_routes)
+        .merge(ws_route)
+        .layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
         );
 
-    let response_headers = warp::reply::with::header("Sec-WebSocket-Protocol", "markcollab-v1");
-    let tracing_filter = warp::trace::request();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3030")
+        .await
+        .expect("Failed to bind to port 3030");
 
-    let routes = api_routes
-        .or(ws_path)
-        .with(response_headers)
-        .with(tracing_filter)
-        .recover(handle_auth_rejection);
-    
     info!("Server listening on 0.0.0.0:3030");
-    warp::serve(routes).run(([0, 0, 0, 0], 3030)).await;
+
+    axum::serve(listener, app)
+        .await
+        .expect("Server failed");
 }
 
-#[instrument(skip(ws, bcast), fields(room_id = %room_id, user_id = %user_info.user_id, username = %user_info.username))]
+// Middleware to extract and inject UserInfo
+async fn auth_middleware(
+    State(auth_state): State<AuthState>,
+    mut request: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> Result<axum::response::Response, axum::http::StatusCode> {
+    let (mut parts, body) = request.into_parts();
+
+    let user_info = auth_state.extract_user_info(&parts).await
+        .map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
+
+    parts.extensions.insert(user_info);
+    request = axum::http::Request::from_parts(parts, body);
+
+    Ok(next.run(request).await)
+}
+
+async fn ws_handler(
+    ws: WebSocketUpgrade,
+    Path(room_id): Path<String>,
+    State(room_manager): State<Arc<RoomManager>>,
+    axum::Extension(user_info): axum::Extension<UserInfo>,
+) -> impl IntoResponse {
+    let bcast = match room_manager.get_room(&room_id).await {
+        Some(room) => room.broadcast_group.clone(),
+        None => {
+            return (axum::http::StatusCode::NOT_FOUND, "Room not found").into_response();
+        }
+    };
+
+    debug!(
+        room_id = %room_id,
+        user_id = %user_info.user_id,
+        username = %user_info.username,
+        "WebSocket upgrade requested"
+    );
+
+    ws.protocols(["markcollab-v1"])
+        .on_upgrade(move |socket| handle_user(room_id, socket, user_info, bcast))
+}
+
+#[instrument(skip(ws, bcast), fields(room_id = %room_id, user_id = %user_info.user_id, username = %user_info.username
+))]
 async fn handle_user(room_id: String, ws: WebSocket, user_info: UserInfo, bcast: Arc<BroadcastGroup>) {
-    info!("Authenticated user connected");
+    info!(
+        room_id = %room_id,
+        user_id = %user_info.user_id,
+        username = %user_info.username,
+        "Authenticated user connected"
+    );
+
     let (sink, stream) = ws.split();
 
-    let yrs_sink = WarpSink::from(sink);
-    let yrs_stream = WarpStream::from(stream);
+    let axum_sink = AxumSink { inner: sink };
+    let axum_stream = AxumStream { inner: stream };
 
-    let sub = bcast.subscribe(yrs_sink, yrs_stream);
-    info!("User subscribed to room");
+    let protocol_sink = ProtocolSink::new(axum_sink);
+    let protocol_stream = ProtocolStream::new(axum_stream);
+
+    let sub = bcast.subscribe(protocol_sink, protocol_stream);
+    info!("User subscribed to room with protocol adapters");
 
     match sub.completed().await {
         Ok(_) => info!("User disconnected gracefully"),
@@ -101,7 +145,7 @@ async fn handle_user(room_id: String, ws: WebSocket, user_info: UserInfo, bcast:
 fn init_tracing() {
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| {
-            tracing_subscriber::EnvFilter::new("info,markcollab_backend_core=debug,warp=info")
+            tracing_subscriber::EnvFilter::new("info,markcollab_backend_core=debug,axum=info,tower_http=info")
         });
 
     let formatting_layer = tracing_subscriber::fmt::layer()

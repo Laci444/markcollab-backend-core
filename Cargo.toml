@@ -20,11 +20,14 @@ tokio = { version = "1.42.0", features = ["full"] }
 tokio-stream = "0.1.17"
 tokio-tungstenite = "0.24.0"
 uuid = { version = "1.15.1", features = ["v4"] }
-warp = "0.3.7"
+axum = { version = "0.7", features = ["ws"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace", "cors"] }
 y-octo = "0.0.1"
-yrs-warp = "0.8.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-futures = "0.2"
 jsonwebtoken = "9.3"
 async-trait = "0.1.89"
+form_urlencoded = "1.2"

@@ -1,9 +1,14 @@
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+use axum::{
+    http::{request::Parts, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
+};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use thiserror::Error;
-use tracing::{debug, error, warn, instrument};
+use tracing::{debug, error, instrument, warn};
 use uuid::Uuid;
-use warp::{Filter, Rejection, Reply};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwtClaims {
@@ -33,7 +38,25 @@ pub enum AuthError {
     InvalidUserId,
 }
 
-impl warp::reject::Reject for AuthError {}
+impl IntoResponse for AuthError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            AuthError::MissingHeader | AuthError::InvalidFormat => StatusCode::BAD_REQUEST,
+            AuthError::TokenExpired | AuthError::InvalidToken(_) | AuthError::InvalidUserId => {
+                StatusCode::UNAUTHORIZED
+            }
+        };
+
+        error!(error = %self, status_code = %status, "Authentication error");
+
+        let body = Json(serde_json::json!({
+            "error": self.to_string(),
+            "code": status.as_u16()
+        }));
+
+        (status, body).into_response()
+    }
+}
 
 pub struct JwtValidator {
     decoding_key: DecodingKey,
@@ -54,7 +77,7 @@ impl JwtValidator {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.validate_aud = false;
         validation.validate_exp = true;
-        
+
         Self {
             decoding_key: DecodingKey::from_secret(secret.as_ref()),
             validation,
@@ -64,7 +87,7 @@ impl JwtValidator {
     #[instrument(skip(self, token), fields(token_length = token.len()))]
     pub fn validate_token(&self, token: &str) -> Result<UserInfo, AuthError> {
         debug!("Validating JWT token");
-        
+
         let token_data = decode::<JwtClaims>(
             token,
             &self.decoding_key,
@@ -78,7 +101,7 @@ impl JwtValidator {
         })?;
 
         let claims = token_data.claims;
-        
+
         let user_id = Uuid::parse_str(&claims.sub)
             .map_err(|_| {
                 error!(subject = %claims.sub, "Invalid UUID format in subject");
@@ -100,14 +123,40 @@ impl JwtValidator {
     }
 }
 
-// MOCK AUTH FILTER - FOR DEVELOPMENT ONLY
-pub fn with_mock_auth() -> impl Filter<Extract = (UserInfo,), Error = Rejection> + Clone {
-    warp::query::<std::collections::HashMap<String, String>>()
-        .and_then(|params: std::collections::HashMap<String, String>| async move {
+// Unified auth extractor that wraps both approaches
+#[derive(Clone)]
+pub struct AuthState {
+    pub validator: Option<JwtValidator>,
+    pub use_mock: bool,
+}
+
+impl AuthState {
+    pub fn mock() -> Self {
+        Self {
+            validator: None,
+            use_mock: true,
+        }
+    }
+
+    pub fn jwt(jwt_secret: String) -> Self {
+        Self {
+            validator: Some(JwtValidator::new(&jwt_secret)),
+            use_mock: false,
+        }
+    }
+
+    pub async fn extract_user_info(&self, parts: &Parts) -> Result<UserInfo, AuthError> {
+        if self.use_mock {
+            // Mock authentication from query params
+            let query = parts.uri.query().unwrap_or("");
+            let params: HashMap<String, String> = form_urlencoded::parse(query.as_bytes())
+                .into_owned()
+                .collect();
+
             let username = params.get("username")
-                .unwrap_or(&"test_user".to_string())
-                .clone();
-            
+                .cloned()
+                .unwrap_or_else(|| "test_user".to_string());
+
             let user_id = params.get("user_id")
                 .and_then(|id| Uuid::parse_str(id).ok())
                 .unwrap_or_else(|| Uuid::new_v4());
@@ -118,67 +167,25 @@ pub fn with_mock_auth() -> impl Filter<Extract = (UserInfo,), Error = Rejection>
                 "Mock auth - user authenticated"
             );
 
-            Ok::<UserInfo, Rejection>(UserInfo {
+            Ok(UserInfo {
                 user_id,
                 username,
             })
-        })
-}
+        } else {
+            // JWT authentication from header
+            let validator = self.validator.as_ref()
+                .ok_or(AuthError::MissingHeader)?;
 
-// Real JWT auth filter
-pub fn with_auth(
-    jwt_secret: String,
-) -> impl Filter<Extract = (UserInfo,), Error = Rejection> + Clone {
-    let validator = JwtValidator::new(&jwt_secret);
-    
-    warp::header::optional::<String>("authorization")
-        .and(warp::any().map(move || validator.clone()))
-        .and_then(|auth_header: Option<String>, validator: JwtValidator| async move {
-            extract_user_info(auth_header, &validator).await
-                .map_err(|e| {
-                    warn!(error = %e, "Authentication failed");
-                    warp::reject::custom(e)
-                })
-        })
-}
+            let auth_header = parts.headers
+                .get(http::header::AUTHORIZATION)
+                .and_then(|h| h.to_str().ok())
+                .ok_or(AuthError::MissingHeader)?;
 
-#[instrument(skip(validator))]
-async fn extract_user_info(
-    auth_header: Option<String>,
-    validator: &JwtValidator,
-) -> Result<UserInfo, AuthError> {
-    // Extract token from Authorization header
-    let auth_value = auth_header.ok_or(AuthError::MissingHeader)?;
-    let token = auth_value
-        .strip_prefix("Bearer ")
-        .ok_or(AuthError::InvalidFormat)?;
+            let token = auth_header
+                .strip_prefix("Bearer ")
+                .ok_or(AuthError::InvalidFormat)?;
 
-    validator.validate_token(token)
-}
-
-pub async fn handle_auth_rejection(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
-    if let Some(auth_error) = err.find::<AuthError>() {
-        let code = match auth_error {
-            AuthError::MissingHeader | AuthError::InvalidFormat => warp::http::StatusCode::BAD_REQUEST,
-            AuthError::TokenExpired | AuthError::InvalidToken(_) | AuthError::InvalidUserId => {
-                warp::http::StatusCode::UNAUTHORIZED
-            }
-        };
-        
-        error!(error = %auth_error, status_code = %code, "Authentication error");
-        
-        let json = warp::reply::json(&serde_json::json!({
-            "error": auth_error.to_string(),
-            "code": code.as_u16()
-        }));
-        
-        Ok(warp::reply::with_status(json, code))
-    } else {
-        let code = warp::http::StatusCode::INTERNAL_SERVER_ERROR;
-        let json = warp::reply::json(&serde_json::json!({
-            "error": "Internal server error"
-        }));
-        
-        Ok(warp::reply::with_status(json, code))
+            validator.validate_token(token)
+        }
     }
 }

@@ -9,16 +9,34 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="bb3f1eaa-6ba1-4f4e-b76e-389cf00ab678" name="Changes" comment="" />
+    <list default="true" id="bb3f1eaa-6ba1-4f4e-b76e-389cf00ab678" name="Changes" comment="feat: migrate from Warp to Axum, refactor routes and handlers">
+      <change afterPath="$PROJECT_DIR$/docs/ADAPTERS.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/MIGRATION.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/broadcast_provider/adapters.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/broadcast_provider/broadcast.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/broadcast_provider/broadcast.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/broadcast_provider/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/broadcast_provider/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/broadcast_provider/protocol.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/broadcast_provider/protocol.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/room/handlers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/room/handlers.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/room/routes.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/room/routes.rs" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="ChangesViewManager" show_ignored="true" />
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_//wsl.localhost/archlinux/home/laci/git/uni/markcollab-backend-core" value="30Kx6BHgOxFSBqpbrYwuEcgqyx6" />
+    </persistenceIdMap>
+  </component>
   <component name="EmbeddingIndexingInfo">
     <option name="cachedIndexableFilesCount" value="26" />
-    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="FileTemplateManagerImpl">
@@ -28,10 +46,13 @@
       </list>
     </option>
   </component>
+  <component name="FormatOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="yocto-warp" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -55,6 +76,12 @@
     <commands />
     <urls />
   </component>
+  <component name="OptimizeOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="ProjectErrors" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 8
 }</component>
@@ -63,32 +90,40 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Cargo.Run markcollab-backend-core.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.doc.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.verbose run.executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;yocto-warp&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.general&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Run markcollab-backend-core.executor": "Run",
+    "Cargo.doc.executor": "Run",
+    "Cargo.verbose run.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "SHELLCHECK.PATH": "C:\\Users\\laszilag\\AppData\\Roaming\\JetBrains\\RustRover2025.3\\plugins\\Shell Script\\linux\\amd64\\shellcheck",
+    "Shell Script.test_migration.sh.executor": "Run",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "yocto-axum",
+    "junie.onboarding.icon.badge.shown": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.stylelint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.stylelint": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "org.rust.first.attach.projects": "true",
+    "rearrange.code.on.save": "true",
+    "settings.editor.selected.configurable": "actions.on.save",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
     <layout>
       <window_info id="Bookmarks" side_tool="true" />
@@ -123,6 +158,11 @@
       <window_info anchor="right" id="Coverage" order="7" sideWeight="0.49936062" side_tool="true" weight="0.31015626" />
       <window_info anchor="right" id="documentation.v2" order="8" side_tool="true" weight="0.32994792" />
     </layout>
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="\\wsl.localhost\archlinux\home\laci\git\uni\markcollab-backend-core\docs" />
+    </key>
   </component>
   <component name="RunAnythingCache">
     <option name="myCommands">
@@ -167,6 +207,7 @@
     </configuration>
     <configuration name="verbose run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
+      <target name="@@@LOCAL@@@" />
       <option name="command" value="run --package markcollab-backend-core --bin markcollab-backend-core" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs>
@@ -186,23 +227,39 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration name="test_migration.sh" type="ShConfigurationType" temporary="true">
+      <option name="SCRIPT_TEXT" value="" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="$PROJECT_DIR$/test_migration.sh" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="$PROJECT_DIR$/../../../../../bin/bash" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="true" />
+      <envs />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Cargo.verbose run" />
       <item itemvalue="Cargo.Run markcollab-backend-core" />
       <item itemvalue="Cargo.doc" />
+      <item itemvalue="Shell Script.test_migration.sh" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Shell Script.test_migration.sh" />
         <item itemvalue="Cargo.Run markcollab-backend-core" />
         <item itemvalue="Cargo.doc" />
-        <item itemvalue="Cargo.verbose run" />
         <item itemvalue="Cargo.verbose run" />
         <item itemvalue="Cargo.verbose run" />
       </list>
     </recent_temporary>
   </component>
   <component name="RustProjectSettings">
-    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+    <option name="toolchainHomeDirectory" value="$PROJECT_DIR$/../../../../../usr/bin" />
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -225,6 +282,7 @@
       <workItem from="1769022702658" duration="37000" />
       <workItem from="1769022759466" duration="9475000" />
       <workItem from="1769089123226" duration="1114000" />
+      <workItem from="1769383522914" duration="1863000" />
     </task>
     <servers />
   </component>
@@ -248,8 +306,20 @@
       </map>
     </option>
   </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="feat: migrate from Warp to Axum, refactor routes and handlers" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: migrate from Warp to Axum, refactor routes and handlers" />
+  </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
     <select />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
   </component>
 </project>

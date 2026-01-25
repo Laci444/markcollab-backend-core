@@ -1,10 +1,10 @@
 pub mod broadcast;
 pub mod protocol;
+pub mod adapters;
 
 use std::sync::Arc;
 
 use std::sync::RwLock;
-use thiserror::Error;
 use y_octo::{Awareness, Doc};
 
 pub struct YObject {
@@ -38,11 +38,3 @@ impl From<Doc> for YObject {
 }
 
 type YObjectRef = Arc<RwLock<YObject>>;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("Failed to parse message")]
-    ParseError,
-    #[error("")]
-    Other,
-}

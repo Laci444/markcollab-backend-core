@@ -3,26 +3,11 @@ use std::io::Write;
 use smallvec::{smallvec, SmallVec};
 use tracing::{debug, error, info, instrument, trace, warn};
 use y_octo::{
-    read_sync_message, write_sync_message, AwarenessStates, CrdtRead, DocMessage, JwstCodecError,
+    write_sync_message, AwarenessStates, CrdtRead, DocMessage, JwstCodecError,
     RawDecoder, StateVector, SyncMessage, Update,
 };
 
 use super::{YObject, YObjectRef};
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MessageType {
-    UpdateMessage(SyncMessage),
-    QueryMessage(SyncMessage),
-}
-
-impl MessageType {
-    pub(crate) fn unwrap(self) -> SyncMessage {
-        match self {
-            MessageType::UpdateMessage(message) => message,
-            MessageType::QueryMessage(message) => message,
-        }
-    }
-}
 
 pub struct MarkcollabProtocol;
 
@@ -32,7 +17,7 @@ pub trait AsyncKafkaProtocol {
     #[instrument(skip(self, yobject))]
     fn start(&self, yobject: YObject) -> Result<SmallVec<[SyncMessage; 1]>, JwstCodecError> {
         debug!("Starting protocol handshake");
-        
+
         let (state_vector, update) = {
             let update = yobject.awareness.get_states();
             let state_vector = match yobject.doc.encode_update_v1() {
@@ -44,81 +29,21 @@ pub trait AsyncKafkaProtocol {
             };
             (state_vector, update)
         };
-        
+
         debug!(
             state_vector_size = state_vector.len(),
             awareness_states_count = update.len(),
             "Protocol start messages prepared"
         );
-        
+
         Ok(smallvec![
             SyncMessage::Doc(DocMessage::Step1(state_vector)),
             SyncMessage::Awareness(update.clone()),
         ])
     }
 
-    #[instrument(skip(self, yobject, data), fields(data_size = data.len()))]
-    fn handle(
-        &self,
-        yobject: YObjectRef,
-        data: &[u8],
-    ) -> Result<SmallVec<[MessageType; 5]>, JwstCodecError> {
-        let mut responses = SmallVec::default();
-        let scanner = SyncMessageScanner::new(data);
-        
-        let mut message_count = 0;
-        for message in scanner {
-            message_count += 1;
-            
-            let message = match message {
-                Ok(msg) => {
-                    trace!(message_count = message_count, message_type = ?msg, "Processing sync message");
-                    msg
-                },
-                Err(e) => {
-                    error!(error = %e, message_count = message_count, "Failed to parse sync message");
-                    return Err(e);
-                }
-            };
-            
-            if self.is_message_update(&message) {
-                debug!(message_count = message_count, "Message is an update");
-                responses.push(MessageType::UpdateMessage(message.clone()))
-            }
-            
-            match self.handle_message(yobject.clone(), message) {
-                Ok(Some(response)) => {
-                    debug!(message_count = message_count, response_type = ?response, "Generated response message");
-                    responses.push(MessageType::QueryMessage(response));
-                },
-                Ok(None) => {
-                    trace!(message_count = message_count, "No response needed for message");
-                },
-                Err(e) => {
-                    error!(error = %e, message_count = message_count, "Error handling message");
-                    return Err(e);
-                }
-            }
-        }
-        
-        info!(
-            message_count = message_count,
-            response_count = responses.len(),
-            "Completed message handling"
-        );
-        
-        Ok(responses)
-    }
-
-    fn is_message_update(&self, message: &SyncMessage) -> bool {
-        !matches!(
-            message,
-            SyncMessage::Doc(DocMessage::Step1(_)) | SyncMessage::AwarenessQuery
-        )
-    }
-
     #[instrument(skip(self, yobject), fields(message_type = ?message))]
-    fn handle_message(
+    fn handle(
         &self,
         yobject: YObjectRef,
         message: SyncMessage,
@@ -164,13 +89,13 @@ pub trait AsyncKafkaProtocol {
             Ok(update) => {
                 debug!(update_size = update.len(), "Generated sync step 1 response");
                 update
-            },
+            }
             Err(e) => {
                 error!(error = %e, "Failed to encode state as update");
                 return Err(e);
             }
         };
-        
+
         Ok(Some(SyncMessage::Doc(DocMessage::Step2(update))))
     }
 
@@ -184,7 +109,7 @@ pub trait AsyncKafkaProtocol {
             Ok(_) => {
                 debug!("Successfully applied sync step 2 update");
                 Ok(None)
-            },
+            }
             Err(e) => {
                 error!(error = %e, "Failed to apply sync step 2 update");
                 Err(e)
@@ -224,7 +149,7 @@ pub trait AsyncKafkaProtocol {
     ) -> Result<Option<SyncMessage>, JwstCodecError> {
         let lock = yobject.read().unwrap();
         let update = lock.awareness.get_states();
-        
+
         debug!(awareness_states_count = update.len(), "Responding to awareness query");
         Ok(Some(SyncMessage::Awareness(update.clone())))
     }
@@ -246,58 +171,12 @@ pub trait AsyncKafkaProtocol {
             match write_sync_message(buffer, message) {
                 Ok(_) => {
                     trace!(message_idx = idx, "Successfully wrote sync message");
-                },
+                }
                 Err(e) => {
                     error!(error = %e, message_idx = idx, "Failed to write sync message");
                 }
             }
         }
         debug!("Completed writing all messages to buffer");
-    }
-}
-
-struct SyncMessageScanner<'a> {
-    buffer: &'a [u8],
-}
-
-impl<'a> SyncMessageScanner<'a> {
-    pub fn new(buffer: &'a [u8]) -> Self {
-        trace!(buffer_size = buffer.len(), "Created sync message scanner");
-        Self { buffer }
-    }
-}
-
-impl Iterator for SyncMessageScanner<'_> {
-    type Item = Result<SyncMessage, JwstCodecError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.buffer.is_empty() {
-            trace!("Scanner buffer exhausted");
-            return None;
-        }
-
-        match read_sync_message(self.buffer) {
-            Ok((tail, message)) => {
-                let consumed = self.buffer.len() - tail.len();
-                trace!(
-                    consumed_bytes = consumed,
-                    remaining_bytes = tail.len(),
-                    message_type = ?message,
-                    "Successfully parsed sync message"
-                );
-                self.buffer = tail;
-                Some(Ok(message))
-            }
-            Err(e) => {
-                error!(
-                    error = %e,
-                    buffer_size = self.buffer.len(),
-                    "Failed to parse sync message from buffer"
-                );
-                Some(Err(JwstCodecError::IncompleteDocument(String::from(
-                    "invalid buffer",
-                ))))
-            }
-        }
     }
 }
