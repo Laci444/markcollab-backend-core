@@ -6,7 +6,7 @@ use tokio::sync::broadcast::error::SendError;
 use tokio::task::JoinHandle;
 use tokio::{select, sync::broadcast::Sender};
 use tracing::{debug, error, info, instrument, trace, warn, Instrument};
-use y_octo::SyncMessage;
+use y_octo::{Doc, SyncMessage};
 
 use super::protocol::{AsyncKafkaProtocol, MarkcollabProtocol};
 use super::{YObject, YObjectRef};
@@ -18,12 +18,38 @@ pub struct BroadcastGroup {
 
 impl BroadcastGroup {
     #[instrument(skip_all)]
-    pub async fn new(buffer_capacity: usize) -> Self {
-        info!(buffer_capacity = buffer_capacity, "Creating new BroadcastGroup");
+    pub async fn default(buffer_capacity: usize) -> Self {
+        info!(
+            buffer_capacity = buffer_capacity,
+            "Creating empty BroadcastGroup"
+        );
+        // TODO: in the future broadcast channels will be inefficient. need to switch to mspc channel per client
         let (sender, _) = broadcast::channel(buffer_capacity);
         BroadcastGroup {
             sender,
             yobject: Arc::new(RwLock::new(YObject::default())),
+        }
+    }
+
+    #[instrument(skip_all)]
+    pub async fn new(buffer_capacity: usize, initial_text: &str) -> Self {
+        info!(
+            buffer_capacity = buffer_capacity,
+            "Creating BroadcastGroup with initial text"
+        );
+        // TODO: in the future broadcast channels will be inefficient. need to switch to mspc channel per client
+
+        let y_doc = Doc::default();
+        y_doc
+            .get_or_create_text("collaboration")
+            .unwrap()
+            .insert(0, initial_text)
+            .unwrap();
+
+        let (sender, _) = broadcast::channel(buffer_capacity);
+        BroadcastGroup {
+            sender,
+            yobject: Arc::new(RwLock::new(YObject::from(y_doc))),
         }
     }
 
@@ -72,14 +98,20 @@ impl BroadcastGroup {
 
                         if let Err(e) = sink.send(msg).await {
                             warn!(error = %e, message_count = message_count, "Sink send failed");
-                            return Err(format!("Sink send failed after {} messages: {}", message_count, e));
+                            return Err(format!(
+                                "Sink send failed after {} messages: {}",
+                                message_count, e
+                            ));
                         }
                     }
 
-                    info!(message_count = message_count, "Sink task completed successfully");
+                    info!(
+                        message_count = message_count,
+                        "Sink task completed successfully"
+                    );
                     Ok(())
                 }
-                    .instrument(tracing::info_span!("sink_task"))
+                    .instrument(tracing::info_span!("sink_task")),
             )
         };
 
@@ -93,7 +125,7 @@ impl BroadcastGroup {
                     while let Some(incoming) = stream.next().await {
                         let msg = match incoming {
                             Ok(message) => {
-                                trace!( "Received message from stream");
+                                trace!("Received message from stream");
                                 message
                             }
                             Err(err) => {
@@ -102,10 +134,16 @@ impl BroadcastGroup {
                             }
                         };
 
-                        let response = protocol.handle(yobject.clone(), msg).unwrap().unwrap();
+                        let response = match protocol.handle(yobject.clone(), msg).unwrap() {
+                            Some(message) => message,
+                            None => continue,
+                        };
                         match sender.send(response) {
                             Ok(subscriber_count) => {
-                                trace!(subscriber_count = subscriber_count, "Broadcasted reply message");
+                                trace!(
+                                    subscriber_count = subscriber_count,
+                                    "Broadcasted reply message"
+                                );
                             }
                             Err(_) => {
                                 debug!("No active subscribers");
@@ -116,7 +154,7 @@ impl BroadcastGroup {
                     info!("Stream task completed");
                     Ok(())
                 }
-                    .instrument(tracing::info_span!("stream_task"))
+                    .instrument(tracing::info_span!("stream_task")),
             )
         };
 
@@ -131,7 +169,10 @@ impl BroadcastGroup {
     fn broadcast(&self, msg: SyncMessage) -> Result<(), SendError<SyncMessage>> {
         match self.sender.send(msg) {
             Ok(subscriber_count) => {
-                debug!(subscriber_count = subscriber_count, "Message broadcasted successfully");
+                debug!(
+                    subscriber_count = subscriber_count,
+                    "Message broadcasted successfully"
+                );
                 Ok(())
             }
             Err(e) => {
@@ -139,6 +180,12 @@ impl BroadcastGroup {
                 Err(e)
             }
         }
+    }
+
+    #[instrument(skip(self))]
+    pub fn subscribe_observer(&self) -> broadcast::Receiver<SyncMessage> {
+        debug!("Creating an observer subscription for background processing");
+        self.sender.subscribe()
     }
 }
 
@@ -159,7 +206,7 @@ impl Subscription {
                 r1
             },
             r2 = self.stream_task => {
-                debug!("Stream task completed first"); 
+                debug!("Stream task completed first");
                 r2
             },
         };

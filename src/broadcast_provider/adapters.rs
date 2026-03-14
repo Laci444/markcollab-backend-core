@@ -1,4 +1,5 @@
 use axum::extract::ws::{Message, WebSocket};
+use bytes::Bytes;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{Sink, Stream};
 use nom;
@@ -30,8 +31,7 @@ where
 
     fn start_send(mut self: Pin<&mut Self>, item: SyncMessage) -> Result<(), Self::Error> {
         let mut buffer = Vec::new();
-        write_sync_message(&mut buffer, &item)
-            .map_err(|e| ProtocolSinkError::Serialization(e))?;
+        write_sync_message(&mut buffer, &item).map_err(|e| ProtocolSinkError::Serialization(e))?;
 
         Pin::new(&mut self.inner)
             .start_send(buffer)
@@ -85,7 +85,7 @@ impl<S> ProtocolStream<S> {
 
 impl<S, E> Stream for ProtocolStream<S>
 where
-    S: Stream<Item=Result<Vec<u8>, E>> + Unpin,
+    S: Stream<Item = Result<Bytes, E>> + Unpin,
 {
     type Item = Result<SyncMessage, ProtocolError<E>>;
 
@@ -102,15 +102,13 @@ where
                     }
                     Err(nom::Err::Incomplete(_))
                     | Err(nom::Err::Error(nom::error::Error {
-                                              code: nom::error::ErrorKind::Eof,
-                                              ..
-                                          }))
+                        code: nom::error::ErrorKind::Eof,
+                        ..
+                    }))
                     | Err(nom::Err::Failure(nom::error::Error {
-                                                code: nom::error::ErrorKind::Eof,
-                                                ..
-                                            })) => {
-                        Poll::Pending
-                    }
+                        code: nom::error::ErrorKind::Eof,
+                        ..
+                    })) => Poll::Pending,
                     Err(_) => {
                         self.buffer.clear();
                         Poll::Ready(Some(Err(ProtocolError::Decode(
@@ -156,7 +154,7 @@ impl Sink<Vec<u8>> for AxumSink {
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: Vec<u8>) -> Result<(), Self::Error> {
-        Pin::new(&mut self.inner).start_send(Message::Binary(item))
+        Pin::new(&mut self.inner).start_send(Message::Binary(Bytes::from(item)))
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -174,16 +172,20 @@ pub struct AxumStream {
 }
 
 impl Stream for AxumStream {
-    type Item = Result<Vec<u8>, axum::Error>;
+    type Item = Result<Bytes, axum::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match Pin::new(&mut self.inner).poll_next(cx) {
-            Poll::Ready(Some(Ok(msg))) => match msg {
-                Message::Binary(data) => Poll::Ready(Some(Ok(data))),
-                Message::Text(text) => Poll::Ready(Some(Ok(text.into_bytes()))),
-                Message::Close(_) => Poll::Ready(None),
-                _ => Poll::Pending,
-            },
+        let temp = Pin::new(&mut self.inner).poll_next(cx);
+        //match Pin::new(&mut self.inner).poll_next(cx) {
+        match temp {
+            Poll::Ready(Some(Ok(msg))) => {
+                match msg {
+                    Message::Binary(data) => Poll::Ready(Some(Ok(data))),
+                    //Message::Text(text) => Poll::Ready(Some(Ok(text))),
+                    Message::Close(_) => Poll::Ready(None),
+                    _ => Poll::Pending,
+                }
+            }
             Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,

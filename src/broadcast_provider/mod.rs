@@ -1,6 +1,6 @@
+pub mod adapters;
 pub mod broadcast;
 pub mod protocol;
-pub mod adapters;
 
 use std::sync::Arc;
 
