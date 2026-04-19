@@ -6,7 +6,7 @@ use tokio::sync::broadcast::error::SendError;
 use tokio::task::JoinHandle;
 use tokio::{select, sync::broadcast::Sender};
 use tracing::{debug, error, info, instrument, trace, warn, Instrument};
-use y_octo::{Doc, SyncMessage};
+use y_octo::{Doc, DocOptions, SyncMessage};
 
 use super::protocol::{AsyncKafkaProtocol, MarkcollabProtocol};
 use super::{YObject, YObjectRef};
@@ -39,7 +39,9 @@ impl BroadcastGroup {
         );
         // TODO: in the future broadcast channels will be inefficient. need to switch to mspc channel per client
 
-        let y_doc = Doc::default();
+        let server_client_id = rand::random::<u32>() as u64;
+
+        let y_doc = Doc::with_client(server_client_id);
         y_doc
             .get_or_create_text("collaboration")
             .unwrap()
@@ -61,7 +63,7 @@ impl BroadcastGroup {
     pub fn subscribe<Sink, Stream, E>(&self, sink: Sink, stream: Stream) -> Subscription
     where
         Sink: SinkExt<SyncMessage> + Send + Sync + Unpin + 'static,
-        Stream: StreamExt<Item=Result<SyncMessage, E>> + Send + Sync + Unpin + 'static,
+        Stream: StreamExt<Item = Result<SyncMessage, E>> + Send + Sync + Unpin + 'static,
         <Sink as futures_util::Sink<SyncMessage>>::Error: std::error::Error + Send + Sync,
         E: std::error::Error + Send + Sync + 'static,
     {
@@ -78,7 +80,7 @@ impl BroadcastGroup {
     ) -> Subscription
     where
         Sink: SinkExt<SyncMessage> + Send + Sync + Unpin + 'static,
-        Stream: StreamExt<Item=Result<SyncMessage, E>> + Send + Sync + Unpin + 'static,
+        Stream: StreamExt<Item = Result<SyncMessage, E>> + Send + Sync + Unpin + 'static,
         <Sink as futures_util::Sink<SyncMessage>>::Error: std::error::Error + Send + Sync,
         E: std::error::Error + Send + Sync + 'static,
         P: AsyncKafkaProtocol + Send + 'static,
@@ -111,7 +113,7 @@ impl BroadcastGroup {
                     );
                     Ok(())
                 }
-                    .instrument(tracing::info_span!("sink_task")),
+                .instrument(tracing::info_span!("sink_task")),
             )
         };
 
@@ -154,7 +156,7 @@ impl BroadcastGroup {
                     info!("Stream task completed");
                     Ok(())
                 }
-                    .instrument(tracing::info_span!("stream_task")),
+                .instrument(tracing::info_span!("stream_task")),
             )
         };
 

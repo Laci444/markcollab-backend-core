@@ -16,6 +16,7 @@ pub struct KafkaRecorder {
     document_id: String,
     producer: FutureProducer,
     receiver: broadcast::Receiver<SyncMessage>,
+    topic_name: String,
 }
 
 impl KafkaRecorder {
@@ -23,11 +24,13 @@ impl KafkaRecorder {
         document_id: Uuid,
         producer: FutureProducer,
         receiver: broadcast::Receiver<SyncMessage>,
+        topic_name: String,
     ) -> Self {
         Self {
             document_id: document_id.to_string(),
             producer,
             receiver,
+            topic_name,
         }
     }
 
@@ -50,7 +53,7 @@ impl KafkaRecorder {
 
             trace!("Valid update received, serializing to raw binary...");
 
-            let record = FutureRecord::to("document-events")
+            let record = FutureRecord::to(&self.topic_name)
                 .key(&self.document_id)
                 .payload(payload_slice);
 

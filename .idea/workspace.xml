@@ -10,27 +10,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bb3f1eaa-6ba1-4f4e-b76e-389cf00ab678" name="Changes" comment="feat: migrate from Warp to Axum, refactor routes and handlers">
-      <change afterPath="$PROJECT_DIR$/src/error.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/kafka_recorder.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/project.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.dockerignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/config.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/broadcast_provider/adapters.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/broadcast_provider/adapters.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/broadcast_provider/broadcast.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/broadcast_provider/broadcast.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/broadcast_provider/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/broadcast_provider/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/broadcast_provider/protocol.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/broadcast_provider/protocol.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kafka_connector/mod.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kafka_recorder.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/kafka_recorder.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/room/handlers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/room/handlers.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/room/in_memory_storage.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/room/in_memory_storage.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/room/manager.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/room/manager.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/room/manager_old.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/room/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/room/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/room/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/room/models.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/room/routes.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/room/storage.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/room/storage.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,14 +35,14 @@
     </persistenceIdMap>
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="32" />
-    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
+    <option name="cachedIndexableFilesCount" value="30" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Rust File" />
+        <option value="Dockerfile" />
       </list>
     </option>
   </component>
@@ -157,31 +148,31 @@
       <window_info id="Backup and Sync History" />
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.20546874" />
-      <window_info id="Commit" order="1" weight="0.32994792" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.14557292" />
+      <window_info id="Commit" order="1" weight="0.25" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Database Changes" />
       <window_info anchor="bottom" id="TypeScript" />
       <window_info anchor="bottom" id="File Transfer" />
-      <window_info anchor="bottom" id="Version Control" order="0" weight="0.29408914" />
+      <window_info anchor="bottom" id="Version Control" order="0" weight="0.32994187" />
       <window_info anchor="bottom" id="Problems" order="1" />
-      <window_info anchor="bottom" id="Problems View" order="2" weight="0.26598838" />
-      <window_info anchor="bottom" id="Terminal" order="3" weight="0.435562" />
+      <window_info anchor="bottom" id="Problems View" order="2" weight="0.32994187" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="3" visible="true" weight="0.35416666" />
       <window_info anchor="bottom" id="Services" order="4" weight="0.32994187" />
-      <window_info anchor="bottom" id="Build" order="5" weight="0.31831396" />
-      <window_info active="true" anchor="bottom" id="Run" order="6" visible="true" weight="0.2369186" />
+      <window_info anchor="bottom" id="Build" order="5" weight="0.32994187" />
+      <window_info active="true" anchor="bottom" id="Run" order="6" visible="true" weight="0.32994187" />
       <window_info anchor="bottom" id="Debug" order="7" weight="0.32994187" />
-      <window_info anchor="bottom" id="TODO" order="8" weight="0.63905036" />
-      <window_info anchor="bottom" id="Messages" order="9" weight="0.63905036" />
+      <window_info anchor="bottom" id="TODO" order="8" weight="0.28246123" />
+      <window_info anchor="bottom" id="Messages" order="9" weight="0.3270349" />
       <window_info anchor="right" id="PR AI Assistant" />
-      <window_info anchor="right" id="Notifications" order="0" weight="0.31015626" />
-      <window_info active="true" anchor="right" id="AIAssistant" order="1" visible="true" weight="0.31015626" />
-      <window_info anchor="right" id="Database" order="2" weight="0.32994792" />
+      <window_info anchor="right" content_ui="combo" id="Notifications" order="0" weight="0.25" />
+      <window_info anchor="right" id="AIAssistant" order="1" weight="0.25" />
+      <window_info anchor="right" id="Database" order="2" weight="0.25" />
       <window_info anchor="right" id="Gradle" order="3" weight="0.25" />
       <window_info anchor="right" id="Maven" order="4" weight="0.25" />
       <window_info anchor="right" id="Cargo" order="5" weight="0.2" />
-      <window_info anchor="right" id="RustCargo" order="6" sideWeight="0.5006394" weight="0.31015626" />
-      <window_info anchor="right" id="Coverage" order="7" sideWeight="0.49936062" side_tool="true" weight="0.31015626" />
+      <window_info anchor="right" id="RustCargo" order="6" weight="0.19869792" />
+      <window_info anchor="right" id="Coverage" order="7" side_tool="true" weight="0.32994792" />
       <window_info anchor="right" id="documentation.v2" order="8" side_tool="true" weight="0.32994792" />
     </layout>
   </component>
@@ -339,6 +330,8 @@
       <workItem from="1773229398112" duration="8883000" />
       <workItem from="1773326927582" duration="9988000" />
       <workItem from="1773412992536" duration="20888000" />
+      <workItem from="1773929222217" duration="4069000" />
+      <workItem from="1774283295263" duration="9424000" />
     </task>
     <servers />
   </component>

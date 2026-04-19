@@ -1,10 +1,12 @@
 mod auth;
 mod broadcast_provider;
+mod config;
 mod error;
 mod kafka_recorder;
 mod room;
 
 use crate::auth::{CurrentUser, User};
+use crate::config::AppConfig;
 use crate::room::InMemoryRoomStorage;
 use axum::extract::Query;
 use axum::{
@@ -30,17 +32,22 @@ use uuid::Uuid;
 #[tokio::main]
 async fn main() {
     init_tracing();
+    let cfg = AppConfig::load().expect("Failed to load configuration");
 
     info!("Starting MarkCollab backend server");
 
     let kafka_producer = ClientConfig::new()
-        .set("bootstrap.servers", "192.168.0.10:9092")
-        .set("message.timeout.ms", "5000")
+        .set("bootstrap.servers", cfg.kafka_brokers)
+        .set("message.timeout.ms", cfg.kafka_message_timeout.to_string())
         .create()
         .expect("Producer creation error");
 
     let room_storage = Box::new(InMemoryRoomStorage::new().await);
-    let room_manager = Arc::new(RoomManager::new(room_storage, kafka_producer));
+    let room_manager = Arc::new(RoomManager::new(
+        room_storage,
+        kafka_producer,
+        cfg.kafka_topic,
+    ));
 
     let api_routes = room_routes(room_manager.clone());
 
@@ -55,7 +62,7 @@ async fn main() {
         .merge(ws_route)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3030")
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", cfg.port))
         .await
         .expect("Failed to bind to port 3030");
 

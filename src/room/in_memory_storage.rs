@@ -71,7 +71,7 @@ impl RoomStorage for InMemoryRoomStorage {
     }
 
     async fn increase_editor_count(&self, room_id: Uuid) {
-        self.rooms.get_mut(&room_id).unwrap().number_of_editors + 1;
+        self.rooms.get_mut(&room_id).unwrap().number_of_editors += 1;
     }
 
     async fn decrease_editor_count(&self, room_id: Uuid) {

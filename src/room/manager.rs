@@ -13,13 +13,19 @@ use uuid::Uuid;
 pub struct RoomManager {
     storage: Box<dyn RoomStorage>,
     kafka_producer: FutureProducer,
+    topic_name: String,
 }
 
 impl RoomManager {
-    pub fn new(storage: Box<dyn RoomStorage>, kafka_producer: FutureProducer) -> Self {
+    pub fn new(
+        storage: Box<dyn RoomStorage>,
+        kafka_producer: FutureProducer,
+        topic_name: String,
+    ) -> Self {
         Self {
             storage,
             kafka_producer,
+            topic_name,
         }
     }
 
@@ -29,16 +35,19 @@ impl RoomManager {
                 let text = reqwest::get(url).await.unwrap().text().await.unwrap();
                 BroadcastGroup::new(100, &text).await
             }
-            None => {
-                BroadcastGroup::default(100).await
-            }
+            None => BroadcastGroup::default(100).await,
         };
 
         let room = self.storage.create_room(req, broadcast_group).await;
 
         let kafka_rx = room.broadcast_group.subscribe_observer();
 
-        let kafka_recorder = KafkaRecorder::new(room.id, self.kafka_producer.clone(), kafka_rx);
+        let kafka_recorder = KafkaRecorder::new(
+            room.id,
+            self.kafka_producer.clone(),
+            kafka_rx,
+            self.topic_name.clone(),
+        );
 
         tokio::spawn(kafka_recorder.run());
 
